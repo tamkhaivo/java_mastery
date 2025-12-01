@@ -42,10 +42,16 @@
 - [X] **Vector API:** SIMD (Single Instruction, Multiple Data) programming in Java.
 - - `javac --add-modules jdk.incubator.vector module4/VectorDemo.java`
 - - `java --add-modules jdk.incubator.vector module4.VectorDemo`
+
 ## Module 5: Advanced Runtime Tuning
-- [ ] **JVM Flags:** Tuning heap, GC algorithms (ZGC, G1).
+- [X] **JVM Flags:** Tuning heap, GC algorithms (ZGC, G1).
 - [X] **CDS (Class Data Sharing):** Fast startup.
 - - `javac module5/HelloWorld.java`
 - - `time java module5.HelloWorld`
 - - `java -Xshare:dump -XX:SharedArchiveFile=app.jsa -cp . module5.HelloWorld`
 - - `time java -Xshare:on -XX:SharedArchiveFile=app.jsa -cp . module5.HelloWorld`
+
+## Module 6: Capstone (The Ultimate Combination)
+- [ ] **Risk Analysis Server:** Virtual Threads (Concurrency) + Vector API (Throughput).
+- - `javac --add-modules jdk.incubator.vector module6/RiskAnalysisServer.java`
+- - `java --add-modules jdk.incubator.vector module6.RiskAnalysisServer`
