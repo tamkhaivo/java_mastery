@@ -59,7 +59,9 @@ public class LongRunningGCStability {
         if (args.length > 2) {
             GC_MODE = args[2];
         }
+        long startupTime = ManagementFactory.getRuntimeMXBean().getUptime();
         System.out.println("=== Module 7: Long Running GC Stability Demo ===");
+        System.out.println("Startup Time: " + startupTime + " ms");
         printGCDetails();
         System.out.printf("Configuration: %d Threads, %d MB Alloc/Req, %d Seconds, Mode: %s%n",
                 THREAD_COUNT, ALLOCATION_SIZE_BYTES / (1024 * 1024), DURATION_SECONDS, GC_MODE);
@@ -68,8 +70,8 @@ public class LongRunningGCStability {
         }
         System.out.println("Starting workload...");
         System.out.println("-".repeat(100));
-        System.out.printf("%-8s | %-15s | %-15s | %-15s | %-15s%n",
-                "Time(s)", "Throughput(req/s)", "Latency P99(ms)", "Heap Used(MB)", "GC Time(ms)");
+        System.out.printf("%-8s | %-15s | %-15s | %-15s | %-15s | %-15s%n",
+                "Time(s)", "Throughput(req/s)", "Latency P99(ms)", "Heap Used(MB)", "GC Time(ms)", "Startup(ms)");
         System.out.println("-".repeat(100));
 
         ExecutorService executor = Executors.newFixedThreadPool(THREAD_COUNT);
@@ -141,7 +143,7 @@ public class LongRunningGCStability {
                 boolean writeHeader = !f.exists() || f.length() == 0;
                 writer = new PrintWriter(new FileWriter(f, true));
                 if (writeHeader) {
-                    writer.println("Time,Throughput,LatencyP99,HeapUsed,GCTime,Mode");
+                    writer.println("Time,Throughput,LatencyP99,HeapUsed,GCTime,StartupTime,Mode");
                 }
             }
         } catch (IOException e) {
@@ -192,12 +194,13 @@ public class LongRunningGCStability {
                     gcTime += gcBean.getCollectionTime();
                 }
 
-                System.out.printf("%-8d | %-15d | %-15s | %-15s | %-15d%n",
-                        elapsedSeconds, requestsInInterval, nf.format(p99Ms), nf.format(heapUsedMb), gcTime);
+                System.out.printf("%-8d | %-15d | %-15s | %-15s | %-15d | %-15d%n",
+                        elapsedSeconds, requestsInInterval, nf.format(p99Ms), nf.format(heapUsedMb), gcTime,
+                        ManagementFactory.getRuntimeMXBean().getUptime());
 
                 if (csvWriter != null) {
-                    csvWriter.printf(Locale.US, "%d,%d,%.2f,%.2f,%d,%s%n", elapsedSeconds, requestsInInterval, p99Ms,
-                            heapUsedMb, gcTime, GC_MODE);
+                    csvWriter.printf(Locale.US, "%d,%d,%.2f,%.2f,%d,%d,%s%n", elapsedSeconds, requestsInInterval, p99Ms,
+                            heapUsedMb, gcTime, ManagementFactory.getRuntimeMXBean().getUptime(), GC_MODE);
                     csvWriter.flush();
                 }
             }
