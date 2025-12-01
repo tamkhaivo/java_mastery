@@ -7,8 +7,11 @@ import java.util.concurrent.ExecutorService;
 import java.util.Random;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.DoubleSummaryStatistics;
 import java.text.NumberFormat;
 import java.util.Locale;
+import java.util.Collections;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class OptimizationSweeper {
 
@@ -17,16 +20,19 @@ public class OptimizationSweeper {
     static float[] DATA_A = new float[MAX_DATA_SIZE];
     static float[] DATA_B = new float[MAX_DATA_SIZE];
     static volatile float BLACKHOLE = 0.0f;
+    static final int ITERATIONS = 3; // Reduced slightly because latency tracking adds overhead
 
-    record Result(int concurrency, int dataSize,
-            double legacyReqPerSec, double modernReqPerSec,
-            double legacyGigaOps, double modernGigaOps,
-            double speedup) {
+    record StatResult(double mean, double stdDev) {
+        public String toString(NumberFormat nf) {
+            return String.format("%s ±%s", nf.format(mean), nf.format(stdDev));
+        }
+    }
+
+    record RunMetrics(double reqPerSec, double p99LatencyUs) {
     }
 
     public static void main(String[] args) throws Exception {
-        System.out.println("=== Hardware Optimization Sweeper (Legacy vs Modern) ===");
-        System.out.println("Mapping Throughput (Req/s) and Compute Power (GigaOps/s)...");
+        System.out.println("=== Hardware Optimization Sweeper (Throughput + Latency) ===");
         System.out.println("Vector Width: " + SPECIES.length() + " floats");
 
         // Setup Data
@@ -36,76 +42,74 @@ public class OptimizationSweeper {
             DATA_B[i] = r.nextFloat();
         }
 
-        int[] concurrencySteps = { 1_000, 10_000, 50_000, 100_000, 200_000, 500_000 };
-        int[] dataSteps = { 100, 10_000, 100_000, 200_000, 500_000 };
+        int[] concurrencySteps = { 1_000, 10_000, 100_000, 200_000 }; // Kept smaller for latency tracking
+        int[] dataSteps = { 1_000, 100_000 };
 
         // Warmup
         System.out.print("Warming up JVM...");
-        runBurst(5000, 1000, true); // Legacy warmup
-        runBurst(5000, 1000, false); // Modern warmup
+        runBurst(1000, 1000, true);
+        runBurst(1000, 1000, false);
         System.out.println(" Done.\n");
 
-        List<Result> results = new ArrayList<>();
+        NumberFormat nfInt = NumberFormat.getNumberInstance(Locale.US);
+        nfInt.setMaximumFractionDigits(0);
 
-        NumberFormat nf = NumberFormat.getNumberInstance(Locale.US);
-        nf.setMaximumFractionDigits(0);
+        NumberFormat nfLat = NumberFormat.getNumberInstance(Locale.US); // For Latency (microseconds)
+        nfLat.setMaximumFractionDigits(0);
 
-        // Table Header
-        System.out.printf("%-8s | %-8s | %-13s | %-13s | %-13s | %-13s | %-7s%n",
-                "Threads", "Data", "Leg(Req/s)", "Mod(Req/s)", "Leg(GigaOps)", "Mod(GigaOps)", "Gain");
-        System.out.println("-".repeat(90));
-
-        Result bestCompute = new Result(0, 0, 0, 0, 0, 0, 0);
+        // Header
+        System.out.printf("%-7s | %-7s | %-20s | %-20s | %-16s | %-16s%n",
+                "Threads", "Data", "Leg(Req/s)", "Mod(Req/s)", "Leg P99(us)", "Mod P99(us)");
+        System.out.println("-".repeat(105));
 
         for (int dataSize : dataSteps) {
             for (int concurrency : concurrencySteps) {
 
-                // 1. Run Legacy
-                double legacyRps = runBurst(concurrency, dataSize, true);
-                double legacyOps = calculateGigaOps(legacyRps, dataSize);
-                System.gc();
-                Thread.sleep(50);
+                // Measure Legacy
+                StatResult legRps = measureThroughput(concurrency, dataSize, true);
+                StatResult legLat = measureLatency(concurrency, dataSize, true);
 
-                // 2. Run Modern
-                double modernRps = runBurst(concurrency, dataSize, false);
-                double modernOps = calculateGigaOps(modernRps, dataSize);
-                System.gc();
-                Thread.sleep(50);
+                // Measure Modern
+                StatResult modRps = measureThroughput(concurrency, dataSize, false);
+                StatResult modLat = measureLatency(concurrency, dataSize, false);
 
-                double speedup = legacyRps > 0 ? modernRps / legacyRps : 0;
-
-                Result res = new Result(concurrency, dataSize, legacyRps, modernRps, legacyOps, modernOps, speedup);
-                results.add(res);
-
-                if (res.modernGigaOps > bestCompute.modernGigaOps)
-                    bestCompute = res;
-
-                System.out.printf("% -8d | %-8d | %13s | %13s | %13.2f | %13.2f | %6.2fx%n",
+                System.out.printf("%-7d | %-7d | %-20s | %-20s | %-16s | %-16s%n",
                         concurrency, dataSize,
-                        nf.format(legacyRps), nf.format(modernRps),
-                        legacyOps, modernOps,
-                        speedup);
+                        legRps.toString(nfInt), modRps.toString(nfInt),
+                        legLat.toString(nfLat), modLat.toString(nfLat));
+
+                System.gc();
+                Thread.sleep(100);
             }
-            System.out.println("-".repeat(90));
+            System.out.println("-".repeat(105));
         }
-
-        System.out.println("\n=== POWER ANALYSIS ===");
-        System.out.printf("Peak Compute Power: %.2f GigaOps/s\n", bestCompute.modernGigaOps);
-        System.out.printf("Achieved at: %d Concurrent Requests with %d Data Size\n", bestCompute.concurrency,
-                bestCompute.dataSize);
-
-        System.out.println("\nInterpretation:");
-        System.out.println("1. GigaOps = Billions of Math Operations per Second.");
-        System.out.println("2. If 'Mod(GigaOps)' is higher, the Vector API is effectively using SIMD instructions.");
-        System.out.println("3. If 'Leg(GigaOps)' flatlines, the CPU cores are saturated or threads are blocking.");
     }
 
-    static double calculateGigaOps(double reqPerSec, int dataSize) {
-        // 2 FLOPs per data point (Multiply + Add)
-        return (reqPerSec * dataSize * 2) / 1_000_000_000.0;
+    static StatResult measureThroughput(int concurrency, int dataSize, boolean isLegacy) {
+        List<Double> samples = new ArrayList<>();
+        for (int i = 0; i < ITERATIONS; i++) {
+            samples.add(runBurst(concurrency, dataSize, isLegacy).reqPerSec);
+        }
+        return calculateStats(samples);
     }
 
-    static double runBurst(int concurrency, int dataSize, boolean isLegacy) {
+    static StatResult measureLatency(int concurrency, int dataSize, boolean isLegacy) {
+        List<Double> samples = new ArrayList<>();
+        for (int i = 0; i < ITERATIONS; i++) {
+            samples.add(runBurst(concurrency, dataSize, isLegacy).p99LatencyUs);
+        }
+        return calculateStats(samples);
+    }
+
+    static StatResult calculateStats(List<Double> vals) {
+        DoubleSummaryStatistics ss = vals.stream().mapToDouble(d -> d).summaryStatistics();
+        double mean = ss.getAverage();
+        double var = vals.stream().mapToDouble(v -> Math.pow(v - mean, 2)).sum() / vals.size();
+        return new StatResult(mean, Math.sqrt(var));
+    }
+
+    static RunMetrics runBurst(int concurrency, int dataSize, boolean isLegacy) {
+        ConcurrentLinkedQueue<Long> latencies = new ConcurrentLinkedQueue<>();
         long start = System.nanoTime();
 
         ExecutorService executor = isLegacy
@@ -114,15 +118,25 @@ public class OptimizationSweeper {
 
         try (executor) {
             for (int i = 0; i < concurrency; i++) {
-                if (isLegacy) {
-                    executor.submit(() -> consume(calculateScalar(DATA_A, DATA_B, dataSize)));
-                } else {
-                    executor.submit(() -> consume(calculateVector(DATA_A, DATA_B, dataSize)));
-                }
+                executor.submit(() -> {
+                    long t0 = System.nanoTime();
+                    if (isLegacy)
+                        consume(calculateScalar(DATA_A, DATA_B, dataSize));
+                    else
+                        consume(calculateVector(DATA_A, DATA_B, dataSize));
+                    latencies.add((System.nanoTime() - t0) / 1000); // Microseconds
+                });
             }
         }
-        long ns = System.nanoTime() - start;
-        return concurrency / (ns / 1_000_000_000.0);
+        long durationNs = System.nanoTime() - start;
+        double rps = concurrency / (durationNs / 1_000_000_000.0);
+
+        // Calculate P99
+        List<Long> sorted = new ArrayList<>(latencies);
+        Collections.sort(sorted);
+        double p99 = sorted.get((int) (sorted.size() * 0.99));
+
+        return new RunMetrics(rps, p99);
     }
 
     static void consume(float result) {
