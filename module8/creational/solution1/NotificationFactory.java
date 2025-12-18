@@ -2,12 +2,12 @@ package module8.creational.solution1;
 
 public class NotificationFactory {
 
-    public Notification createNotification(String type) {
+    public Notification createNotification(Notification type) {
         return switch (type) {
-            case "EMAIL" -> new EmailNotification();
-            case "SMS" -> new SmsNotification();
-            case "SLACK" -> new SlackNotification();
-            default -> throw new IllegalArgumentException("Unknown notification type: " + type);
+            case EmailNotification _ -> new EmailNotification();
+            case SmsNotification _ -> new SmsNotification();
+            case SlackNotification _ -> new SlackNotification();
+            case InvalidNotification _ -> new InvalidNotification();
         };
     }
 

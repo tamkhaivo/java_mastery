@@ -9,23 +9,15 @@ public class TestSolution {
 
         // Test EMAIL
         System.out.println("\nTesting EMAIL:");
-        manager.sendNotification("EMAIL", "Hello via Email");
+        manager.sendNotification(new EmailNotification(), "Hello via Email");
 
         // Test SMS
         System.out.println("\nTesting SMS:");
-        manager.sendNotification("SMS", "Hello via SMS");
+        manager.sendNotification(new SmsNotification(), "Hello via SMS");
 
         // Test SLACK
         System.out.println("\nTesting SLACK:");
-        manager.sendNotification("SLACK", "Hello via Slack");
-
-        // Test INVALID
-        System.out.println("\nTesting INVALID:");
-        try {
-            manager.sendNotification("INVALID", "Should fail");
-        } catch (IllegalArgumentException e) {
-            System.out.println("Caught expected exception: " + e.getMessage());
-        }
+        manager.sendNotification(new SlackNotification(), "Hello via Slack");
 
         System.out.println("\nVerification Complete.");
     }
