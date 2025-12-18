@@ -1,0 +1,13 @@
+package module8.creational.solution1;
+
+public class EmailNotification implements Notification {
+    @Override
+    public void send(String message) {
+        System.out.println("Sending Email notification: " + message);
+    }
+
+    @Override
+    public String getType() {
+        return "EMAIL";
+    }
+}

@@ -45,6 +45,8 @@ public class NotificationManager {
 
 **Metric Improvement:** Extensibility. New types are added via new classes, not by changing existing control flow.
 
+``` javac module8/creational/solution1/*.java && java module8.creational.solution1.TestSolution ```
+
 ## Problem 2: The "Payment Switch from Hell" (Behavioral)
 
 **Scenario:** A payment processing class contains a massive switch statement handling logic for Credit Cards, PayPal, and Crypto.
