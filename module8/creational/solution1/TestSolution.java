@@ -21,7 +21,11 @@ public class TestSolution {
 
         // Test INVALID
         System.out.println("\nTesting INVALID:");
-        manager.sendNotification("INVALID", "Hello via INVALID");
+        try {
+            manager.sendNotification("INVALID", "Should fail");
+        } catch (IllegalArgumentException e) {
+            System.out.println("Caught expected exception: " + e.getMessage());
+        }
 
         System.out.println("\nVerification Complete.");
     }
