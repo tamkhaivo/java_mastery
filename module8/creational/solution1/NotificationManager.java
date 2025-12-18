@@ -7,7 +7,7 @@ public class NotificationManager {
         this.notificationFactory = notificationFactory;
     }
 
-    public void sendNotification(Notification type, String message) {
+    public void sendNotification(NotificationType type, String message) {
         Notification notification = notificationFactory.createNotification(type);
         notification.send(message);
     }

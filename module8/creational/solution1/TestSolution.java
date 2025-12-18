@@ -9,19 +9,17 @@ public class TestSolution {
 
         // Test EMAIL
         System.out.println("\nTesting EMAIL:");
-        manager.sendNotification(new EmailNotification(), "Hello via Email");
+        manager.sendNotification(NotificationType.EMAIL, "Hello via Email");
 
         // Test SMS
         System.out.println("\nTesting SMS:");
-        manager.sendNotification(new SmsNotification(), "Hello via SMS");
+        manager.sendNotification(NotificationType.SMS, "Hello via SMS");
 
         // Test SLACK
         System.out.println("\nTesting SLACK:");
-        manager.sendNotification(new SlackNotification(), "Hello via Slack");
+        manager.sendNotification(NotificationType.SLACK, "Hello via Slack");
 
-        // Test INVALID
-        System.out.println("\nTesting INVALID:");
-        manager.sendNotification(new InvalidNotification(), "Hello via Invalid");
+        // Test INVALID (Removed as it's not in the Enum)
         System.out.println("\nVerification Complete.");
     }
 }
