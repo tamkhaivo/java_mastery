@@ -1,4 +1,4 @@
-package module8.problem1;
+package module8.creational.problem1;
 
 public class NotificationManager {
     public void send(String type, String message) {

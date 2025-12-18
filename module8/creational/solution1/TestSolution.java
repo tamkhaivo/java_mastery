@@ -19,6 +19,9 @@ public class TestSolution {
         System.out.println("\nTesting SLACK:");
         manager.sendNotification(new SlackNotification(), "Hello via Slack");
 
+        // Test INVALID
+        System.out.println("\nTesting INVALID:");
+        manager.sendNotification(new InvalidNotification(), "Hello via Invalid");
         System.out.println("\nVerification Complete.");
     }
 }
