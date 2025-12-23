@@ -83,7 +83,7 @@ strategies.put("CREDIT_CARD", this::processCreditCard);
 
 ### A. The Maintenance Nightmare (OCP Violation)
 Because the dashboard is tightly coupled to `OldChartLib`, upgrading requires rewriting every line of code in the dashboard that calls the library. The code was not "Closed" to external changes.
-
+``` javac module8/structural/problem3/*.java && java module8.structural.problem3.Main ```
 ### B. The Pattern Solution: Adapter Pattern
 **Goal:** Isolate the core application from the volatility of external dependencies.
 
